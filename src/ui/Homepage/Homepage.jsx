@@ -6,15 +6,19 @@ import {
   ListItemButton,
   Button,
   Typography,
+  IconButton,
+  Popover,
+  Dialog,
+  DialogTitle,
+  TextField,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import AddCircle from "@mui/icons-material/AddCircle";
 import { v4 as uuidv4 } from "uuid";
-import { arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { db } from "../../firebase/configuration";
-import { updateDocs } from "../../store/actions";
 import { useNavigate } from "react-router";
+import { MoreVert } from "@mui/icons-material";
+import { createNewDocument, deleteDocument, renameDocument } from "../../middleware/postInteractionThunk";
 function Homepage() {
   const dispatch = useDispatch();
   const email = useSelector((state) => state.emailId);
@@ -22,36 +26,47 @@ function Homepage() {
   const [documentList, setDocumentList] = useState([]);
   const uid = useSelector((state) => state.uid);
   const navigate = useNavigate();
+  const [newDocName, setDocName] = useState("");
+  const [selectedDocId, setSelectedDocId] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [openDialog2, setOpenDialog2] = useState(false);
 
   useEffect(() => {
     setDocumentList(documents);
   }, [documents]);
 
   const createNewDoc = async () => {
-    try {
-      let newId = uuidv4();
-      const docRef = doc(db, "documents", newId);
-      const userDocRef = doc(db, "users", uid);
-      await setDoc(docRef, {
-        id: newId,
-        title: "Untitled Document",
-        content: "",
-        users: [uid],
-      }).then(() => {
-        console.log("success");
-      });
-      await updateDoc(userDocRef, {
-        documents: arrayUnion({ id: newId, name: "Untitled Document" }),
-      }).then(async () => {
-        const updatedDoc = await getDoc(userDocRef);
-        console.log(updatedDoc.data());
-        dispatch(updateDocs(updatedDoc.data()?.documents));
-        alert("New document created successfully");
-      });
-    } catch (error) {
-      console.log("Error:", error.message);
-    }
+    const newId = uuidv4();
+    await dispatch(createNewDocument(newId, uid));
   };
+
+  const handleRename = async () => {
+     if(selectedDocId !== null){
+      console.log('selectedDocId', selectedDocId);
+      await dispatch(renameDocument(selectedDocId, newDocName, uid));
+      setOpenDialog(false);
+      setSelectedDocId(null);
+     }
+  };
+  const removeDocument = async () => {
+     if(selectedDocId !== null){
+      console.log('selectedDocId', selectedDocId);
+      await dispatch(deleteDocument(selectedDocId, uid));
+      setOpenDialog2(false);
+      setSelectedDocId(null);
+     }
+  };
+
+  
+
+  useEffect(()=>{
+    let newArr = [];
+    documentList.map(()=>{
+      newArr.push(null);
+    })
+    setAnchorEl(newArr);
+  },[documentList])
 
   return (
     <>
@@ -80,39 +95,148 @@ function Homepage() {
       <Divider />
 
       <Container>
-        <Typography
-          sx={{ padding: "15px 0" }}
-          variant="h4"
-          fontSize={"32px"}
-          fontWeight={400}
-        >
-          Your Documents
-        </Typography>
-
+        {documentList.length > 0 && (
+          <Typography
+            sx={{ padding: "15px 0" }}
+            variant="h4"
+            fontSize={"32px"}
+            fontWeight={400}
+          >
+            Your Documents
+          </Typography>
+        )}
+        {documentList.length == 0 && (
+          <Typography fontSize={"20px"} fontWeight={300} sx={{ mt: 2 }}>
+            No documents to display.
+          </Typography>
+        )}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <List>
             {documentList &&
-              documentList.map((document) => {
+              documentList.map((document, index) => {
+                const open = Boolean(anchorEl[index]);
+                const id = open? 'Simple-popover': undefined;
                 return (
-                  <ListItemButton
-                    onClick={() => {
-                      navigate(`/document/${document.id}`);
-                    }}
+                  <Box
                     key={document.id}
                     sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                       borderBottom: "2px solid #e4e4e4",
-                      p: "13px",
-                      fontSize: "24px",
-                      fontWeight: 400,
                     }}
                   >
-                    {document.name}
-                  </ListItemButton>
+                    <ListItemButton
+                      onClick={() => {
+                        navigate(`/document/${document.id}`);
+                      }}
+                      key={document.id}
+                      sx={{
+                        p: "13px",
+                        fontSize: "24px",
+                        fontWeight: 400,
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      {document.name}
+                    </ListItemButton>
+                    <IconButton
+                      onClick={(e) => {
+                        console.log('Hello');
+                        console.log(anchorEl);
+                        setAnchorEl((prevState)=> prevState.map((state, index2)=> index == index2 ? e.currentTarget:state ));
+                      }}
+                      aria-describedby={id}
+                    >
+                      <MoreVert />
+                    </IconButton>
+                    <Popover
+                      id={id}
+                      open={open}
+                      anchorEl={anchorEl[index]}
+                      onClose={() => {
+                        setAnchorEl((prevState)=> prevState.map((state, index2)=> index == index2 ? null :state ));
+                      }}
+                      anchorOrigin={{
+                        vertical: "bottom",
+                        horizontal: "left",
+                      }}
+                    >
+                      <Box>
+                        <ListItemButton
+                          onClick={() => {
+                            setSelectedDocId(document.id);
+                            setOpenDialog(true);
+                          }}
+                          sx={{ p: 2 }}
+                        >
+                          Rename
+                        </ListItemButton>
+                        <ListItemButton
+                          onClick={() => {
+                            setSelectedDocId(document.id);
+                            setOpenDialog2(true);
+                          }}
+                          sx={{ p: 2 }}
+                        >
+                          Delete
+                        </ListItemButton>
+                      </Box>
+                    </Popover>
+                  </Box>
                 );
               })}
           </List>
         </Box>
       </Container>
+      <Dialog
+        onClose={() => {
+          setOpenDialog(false);
+          setSelectedDocId(null);
+        }}
+        open={openDialog}
+      >
+       <Box sx={{p:2}}>
+       <DialogTitle>Enter Name of document</DialogTitle>
+        <TextField
+        fullWidth
+          value={newDocName}
+          onChange={(e) => {
+            setDocName(e.target.value);
+          }}
+        />
+        <Box sx={{ display: "flex", gap: 5, p:'10px !important' }}>
+          <Button fullWidth onClick={handleRename} color="primary" variant="contained">
+            Rename
+          </Button>
+          <Button fullWidth onClick={()=>{setOpenDialog(false)}}  color="error" variant="contained">
+            Discard
+          </Button>
+        </Box>
+
+       </Box>
+      </Dialog>
+      <Dialog
+        onClose={() => {
+          setOpenDialog2(false);
+          setSelectedDocId(null);
+        }}
+        open={openDialog2}
+      >
+        <Box sx={{p:1}}>
+        <DialogTitle>Are you sure you want to delete this document?</DialogTitle>
+        
+        <Box sx={{ display: "flex",justifyContent: 'space-between', gap: 5, p:'10px !important' }}>
+          <Button fullWidth onClick={removeDocument} color="primary" variant="contained">
+            Delete
+          </Button>
+          <Button fullWidth onClick={()=>{setOpenDialog2(false)}}  color="error" variant="contained">
+            Discard
+          </Button>
+        </Box>
+        </Box>
+      </Dialog>
     </>
   );
 }

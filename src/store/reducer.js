@@ -9,13 +9,12 @@ const initialState = {
 const reactDocReducer = (state = initialState, action) => {
   switch (action.type) {
     case INITIATE_DATA:
-      return { ...state, documents: [] };
+      return { ...state, documents: action.payload.documents};
     case LOGIN_USER:
       return {
         ...state,
         uid: action.payload.uid,
         emailId: action.payload.email,
-        documents: action.payload.documents
       };
     case UPDATE_DOCS: 
       return {

@@ -18,6 +18,7 @@ function App() {
         <Route path="document/:id" element={<Document/>}/>
       </Routes>
     </BrowserRouter>
+    
   </Provider>;
 }
 

@@ -1,22 +1,59 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
 import "react-quill/dist/quill.snow.css";
 import ReactQuill from "react-quill";
 import { Box, Button } from "@mui/material";
-import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/configuration";
 import { useDispatch, useSelector } from "react-redux";
-import { updateDocs } from "../../store/actions";
+import {
+  deleteDocument,
+  updateDocsContent,
+} from "../../middleware/postInteractionThunk";
 
 function Document() {
   const [content, setContent] = useState("");
   const { id } = useParams();
   const docRef = doc(db, "documents", id);
-  const documents = useSelector((state) => state.documents);
   const uid = useSelector((state) => state.uid);
-  const userDocRef = doc(db, "users", uid);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  const [saved, setSaveState] = useState(true);
+  const saveRef = useRef(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!saveRef.current) {
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+
+    const handleBeforeUnload = (event) => {
+      if (!saveRef.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  useEffect(() => {
+    saveRef.current = saved;
+    if (!saved) {
+      window.addEventListener(
+        "popstate",
+        window.history.pushState(null, "".window.location.href)
+      );
+    }
+  }, [saved]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -29,26 +66,22 @@ function Document() {
 
   const handleChange = (value) => {
     setContent(value);
+    setSaveState(false);
   };
-  const updateDocument = async () => {
-    await updateDoc(docRef, {
-      content: content,
-    }).then(() => {
-      alert("Saved");
-    });
+  const updateDocument = () => {
+    try {
+      dispatch(updateDocsContent(id));
+      setSaveState(true);
+    } catch (e) {
+      console.log("e.message", e.message);
+    }
   };
 
-  const removeDoc = async () => {
-    await deleteDoc(docRef).then(async () => {
-      let newId = id;
-      const newDoc = documents?.filter(({ id }) => {
-        return newId !== id;
-      });
-
-      await updateDoc(userDocRef, { documents: newDoc });
-      dispatch(updateDocs(newDoc));
+  const removeDoc = () => {
+    try {
+      dispatch(deleteDocument(id, uid));
       navigate("/");
-    });
+    } catch (e) {}
   };
   return (
     <div>
