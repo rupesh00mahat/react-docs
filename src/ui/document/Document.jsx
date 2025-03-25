@@ -55,7 +55,7 @@ function Document() {
     if (!socket || !quill) return;
     const handleTextChange = (delta,oldDelta, source) => {
       if (source == "user") {
-        // setSaveState(false);
+        setSaveState(true);
         updateDocument();
         socket.emit("send-changes", { roomId: id, delta });
       }
@@ -165,6 +165,7 @@ function Document() {
           onClick={() => {
             updateDocument();
           }}
+          disabled={saved? true :false}
         >
           Save
         </Button>
