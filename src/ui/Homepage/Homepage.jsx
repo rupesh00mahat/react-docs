@@ -18,7 +18,7 @@ import AddCircle from "@mui/icons-material/AddCircle";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router";
 import { MoreVert } from "@mui/icons-material";
-import { createNewDocument, deleteDocument, renameDocument } from "../../middleware/postInteractionThunk";
+import { createNewDocument, deleteDocument, renameDocument, shareDocToUser } from "../../middleware/postInteractionThunk";
 function Homepage() {
   const dispatch = useDispatch();
   const email = useSelector((state) => state.emailId);
@@ -31,6 +31,11 @@ function Homepage() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [openDialog2, setOpenDialog2] = useState(false);
+  const [openDialog3, setOpenDialog3] = useState(false);
+  const [sharedUserName, setSharedUserName] = useState('');
+  const [selectedDocName, setSelectedDocName] = useState('');
+  const state = useSelector((state)=> state);
+  console.log('state', state);
 
   useEffect(() => {
     setDocumentList(documents);
@@ -38,6 +43,7 @@ function Homepage() {
 
   const createNewDoc = async () => {
     const newId = uuidv4();
+    console.log('uid', uid);
     await dispatch(createNewDocument(newId, uid));
   };
 
@@ -51,12 +57,20 @@ function Homepage() {
   };
   const removeDocument = async () => {
      if(selectedDocId !== null){
-      console.log('selectedDocId', selectedDocId);
       await dispatch(deleteDocument(selectedDocId, uid));
       setOpenDialog2(false);
       setSelectedDocId(null);
      }
   };
+
+  const shareDocument = async (name) => {
+    if(selectedDocId !== null && sharedUserName !== ''){
+      await dispatch(shareDocToUser(selectedDocId, sharedUserName, selectedDocName, email));
+      setSelectedDocName('');
+      setSharedUserName('');
+    }
+setOpenDialog3(false);
+  }
 
   
 
@@ -176,6 +190,16 @@ function Homepage() {
                         <ListItemButton
                           onClick={() => {
                             setSelectedDocId(document.id);
+                            setOpenDialog3(true);
+                            setSelectedDocName(document.name)
+                          }}
+                          sx={{ p: 2 }}
+                        >
+                          Share
+                        </ListItemButton>
+                        <ListItemButton
+                          onClick={() => {
+                            setSelectedDocId(document.id);
                             setOpenDialog2(true);
                           }}
                           sx={{ p: 2 }}
@@ -232,6 +256,33 @@ function Homepage() {
             Delete
           </Button>
           <Button fullWidth onClick={()=>{setOpenDialog2(false)}}  color="error" variant="contained">
+            Discard
+          </Button>
+        </Box>
+        </Box>
+      </Dialog>
+      <Dialog
+        onClose={() => {
+          setOpenDialog3(false);
+          setSelectedDocId(null);
+        }}
+        open={openDialog3}
+      >
+        <Box sx={{p:1}}>
+        <DialogTitle>Enter the email you want to share to? (Make sure the user Exists.)</DialogTitle>
+         <TextField
+        fullWidth
+          value={sharedUserName}
+          onChange={(e) => {
+            setSharedUserName(e.target.value);
+          }}
+        />
+        <Box sx={{ display: "flex",justifyContent: 'space-between', gap: 5, p:'10px !important' }}>
+          <Button fullWidth onClick={()=>{
+            shareDocument(document.name)}} color="primary" variant="contained">
+            Add
+          </Button>
+          <Button fullWidth onClick={()=>{setOpenDialog3(false)}}  color="error" variant="contained">
             Discard
           </Button>
         </Box>
